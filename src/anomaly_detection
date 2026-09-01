@@ -1,0 +1,58 @@
+#include "anomaly_detection.h"
+#include <algorithm>
+#include <unordered_set>
+#include <arpa/inet.h>
+
+using namespace std;
+
+void AnomalyDetector::feed_packet(uint32_t src_ip_net, uint16_t dest_port, uint64_t ts_sec) {
+    recent[src_ip_net].push_back({ts_sec, dest_port});
+    prune_old(src_ip_net, ts_sec);
+}
+
+void AnomalyDetector::prune_old(uint32_t src_ip, uint64_t now) {
+    auto &vec = recent[src_ip];
+    vec.erase(
+        remove_if(vec.begin(), vec.end(),
+                  [&](const Entry &e) { return e.ts_sec + WINDOW < now; }),
+        vec.end()
+    );
+}
+
+vector<AnomAlert> AnomalyDetector::check_now(uint64_t ts_sec) {
+    vector<AnomAlert> alerts;
+
+    for (auto &p : recent) {
+        uint32_t ip_net = p.first;
+        auto &vec = p.second;
+
+        prune_old(ip_net, ts_sec);
+
+        // Count unique destination ports
+        unordered_set<uint16_t> uniq;
+        for (auto &e : vec)
+            uniq.insert(e.port);
+
+        if (uniq.size() >= PORT_SCAN_UNIQUE) {
+            AnomAlert a;
+            a.type = "PORT_SCAN";
+            a.src_ip = ip_to_string(ip_net);
+            a.desc = "unique_ports=" + to_string(uniq.size()) +
+                     " window=" + to_string(WINDOW) + "s";
+            alerts.push_back(a);
+
+            // Reset to avoid repeating immediately
+            vec.clear();
+        }
+    }
+
+    return alerts;
+}
+
+string AnomalyDetector::ip_to_string(uint32_t ip_net) {
+    uint32_t ip = ntohl(ip_net);
+    return to_string((ip >> 24) & 0xFF) + "." +
+           to_string((ip >> 16) & 0xFF) + "." +
+           to_string((ip >> 8) & 0xFF) + "." +
+           to_string(ip & 0xFF);
+}
