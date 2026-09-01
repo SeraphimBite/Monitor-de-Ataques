@@ -1,4 +1,4 @@
-# Detector de Intrusoes em Redes
+# Monitor-de-Ataques
 
 Uma implementação em C++ de um sistema de monitoramento de tráfego capaz de analisar pacotes de rede e identificar comportamentos potencialmente maliciosos.
 
