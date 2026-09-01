@@ -1,0 +1,47 @@
+# =============================================
+# Signature rules for NIDS
+# Format:
+# TAG: pattern
+#
+# Case-insensitive matching
+# =============================================
+
+# --------------- SQL Injection ----------------
+SQLI: ' or '1'='1
+SQLI: union select
+SQLI: select *
+SQLI: drop table
+SQLI: -- 
+SQLI: ;--
+SQLI: or 1=1
+SQLI: information_schema
+
+# ------------------- XSS ----------------------
+XSS: <script>
+XSS: javascript:
+XSS: onerror=
+XSS: onload=
+XSS: alert(
+
+# --------------- CMD Injection ----------------
+CMD: ; rm -rf
+CMD: && rm -rf
+CMD: cat /etc/passwd
+CMD: wget http
+CMD: curl http
+CMD: /bin/sh
+
+# --------------- Malware Indicators -----------
+MALWARE: powershell -enc
+MALWARE: base64,
+MALWARE: cmd.exe /c
+MALWARE: eval(
+MALWARE: sock.connect
+MALWARE: malware
+
+# --------------- Generic Suspicious -----------
+SUSP: ../
+SUSP: ../../
+SUSP: select user
+SUSP: chmod 777
+SUSP: drop database
