@@ -1,0 +1,76 @@
+#include <fstream>
+#include <cstdint>
+#include <vector>
+#include <bits/stdc++.h>
+using namespace std;
+
+int main() {
+    // Minimal PCAP global header
+    uint8_t global_header[24] = {
+        0xd4,0xc3,0xb2,0xa1, // magic number
+        0x02,0x00,           // major version
+        0x04,0x00,           // minor version
+        0x00,0x00,0x00,0x00, // timezone
+        0x00,0x00,0x00,0x00, // accuracy
+        0xff,0xff,0x00,0x00, // snaplen
+        0x01,0x00,0x00,0x00  // network: Ethernet
+    };
+
+    // Build a fake Ethernet + IP + TCP + Raw payload packet
+    vector<uint8_t> pkt;
+
+    // ---- Ethernet header (14 bytes)
+    uint8_t eth[14] = { 
+        0,1,2,3,4,5,    // dest MAC
+        6,7,8,9,10,11,  // src MAC
+        0x08, 0x00      // IPv4
+    };
+    pkt.insert(pkt.end(), eth, eth + 14);
+
+    // ---- IPv4 header (20 bytes, minimal)
+    uint8_t ip[20] = {
+        0x45, 0x00, 
+        0x00, 0x40, // total length = 64 bytes
+        0x00,0x01, 
+        0x40,0x00, 
+        64, 6,     // TTL=64, Protocol=TCP
+        0,0,       // checksum (ignored)
+        127,0,0,1,  // src = 127.0.0.1
+        127,0,0,1   // dst = 127.0.0.1
+    };
+    pkt.insert(pkt.end(), ip, ip + 20);
+
+    // ---- TCP header (20 bytes)
+    uint8_t tcp[20] = {
+        0x1F,0x90, // src port 8080
+        0x00,0x50, // dst port 80
+        0,0,0,0,   // seq
+        0,0,0,0,   // ack
+        0x50,      // data offset = 5 words = 20 bytes
+        0x18,      // flags = PSH+ACK
+        0,0,       // window
+        0,0,       // checksum
+        0,0        // urgent ptr
+    };
+    pkt.insert(pkt.end(), tcp, tcp + 20);
+
+    // ---- Payload containing SQL injection
+    const char *payload = "GET /login?id=1' OR '1'='1 HTTP/1.1";
+    pkt.insert(pkt.end(), payload, payload + strlen(payload));
+
+    // ---- PCAP packet header (16 bytes)
+    uint8_t pcap_header[16] = {
+        0x5b,0x9a,0x3c,0x60,  // timestamp seconds
+        0,0,0,0,              // microseconds
+        (uint8_t)pkt.size(),0,0,0, // incl_len
+        (uint8_t)pkt.size(),0,0,0  // orig_len
+    };
+
+    ofstream f("sqli.pcap", ios::binary);
+    f.write((char*)global_header, 24);
+    f.write((char*)pcap_header, 16);
+    f.write((char*)pkt.data(), pkt.size());
+    f.close();
+
+    return 0;
+}
